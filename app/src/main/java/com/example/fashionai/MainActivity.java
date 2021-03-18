@@ -45,7 +45,6 @@ public class MainActivity extends AppCompatActivity {
             PERMISSION_REQUEST_CODE = 2;
     ImageView imageViewOutput, imageViewInput;
     Interpreter tfLite;
-    //String printData = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,7 +138,6 @@ public class MainActivity extends AppCompatActivity {
         try{
             Bitmap outputBitmap = doInterference(inputBitmap);
             imageViewOutput.setImageBitmap(outputBitmap);
-            //showAlert(printData);
         }catch (Exception e){
             showAlert(e.getMessage());
         }
@@ -154,53 +152,45 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Bitmap doInterference(Bitmap inputBitmap) {
-        ByteBuffer inputBuffer = bitmapToByteBuffer(inputBitmap);
-        ByteBuffer outputBuffer = ByteBuffer.allocateDirect(Float.BYTES*INPUT_IMAGE_SIZE*INPUT_IMAGE_SIZE*3);
-        tfLite.run(inputBuffer, outputBuffer);
-        return byteBufferToBitmap(outputBuffer);
-        //return byteBufferToBitmap(inputBuffer);
+        float[][][][] inputArray = bitmapToFloatArray(inputBitmap);
+        float[][][][] outputArray = new float[1][INPUT_IMAGE_SIZE][INPUT_IMAGE_SIZE][3];
+        tfLite.run(inputArray, outputArray);
+        return floatArrayToBitmap(outputArray);
+        //return floatArrayToBitmap();
     }
 
-    private ByteBuffer bitmapToByteBuffer(Bitmap bitmap) {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(Float.BYTES*INPUT_IMAGE_SIZE*INPUT_IMAGE_SIZE*3);
-        buffer.order(ByteOrder.nativeOrder());
+    private float[][][][] bitmapToFloatArray(Bitmap bitmap) {
+        float[][][][] arr = new float[1][INPUT_IMAGE_SIZE][INPUT_IMAGE_SIZE][3];
 
         Bitmap bitmapScaled = Bitmap.createScaledBitmap(bitmap, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, true);
         int[] pixels = new int[INPUT_IMAGE_SIZE * INPUT_IMAGE_SIZE];
         bitmapScaled.getPixels(pixels, 0, INPUT_IMAGE_SIZE, 0, 0, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE);
-        /*printData+=("Input pixel0: "+pixels[0]);
-        printData+=(" r: "+(((pixels[0]>> 16) & 0xFF)-127.5f)/127.5f);
-        printData+=(" g: "+(((pixels[0]>> 8) & 0xFF)-127.5f)/127.5f);
-        printData+=(" b: "+(((pixels[0]) & 0xFF)-127.5f)/127.5f);*/
 
-        for (int i = 0; i < INPUT_IMAGE_SIZE*INPUT_IMAGE_SIZE; i++) {
-            final int val = pixels[i];
+        for (int i=0; i<INPUT_IMAGE_SIZE; i++) {
+            for(int j=0; j<INPUT_IMAGE_SIZE; j++){
+                final int val = pixels[(i*INPUT_IMAGE_SIZE)+j];
 
-            buffer.putFloat((((val>> 16) & 0xFF)-127.5f)/127.5f);
-            buffer.putFloat((((val>> 8) & 0xFF)-127.5f)/127.5f);
-            buffer.putFloat(((val & 0xFF)-127.5f)/127.5f);
+                arr[0][i][j][0] = ((((val>> 16) & 0xFF)-127.5f)/127.5f);
+                arr[0][i][j][1] = ((((val>> 8) & 0xFF)-127.5f)/127.5f);
+                arr[0][i][j][2] = (((val & 0xFF)-127.5f)/127.5f);
+            }
         }
 
-        return buffer;
+        return arr;
     }
 
-    private Bitmap byteBufferToBitmap(ByteBuffer buffer) {
-        /*buffer.rewind();
-        printData+=(" Output r: "+buffer.getFloat());
-        printData+=(" g: "+buffer.getFloat());
-        printData+=(" b: "+buffer.getFloat());*/
-
-        buffer.rewind();
+    private Bitmap floatArrayToBitmap(float[][][][] arr) {
         Bitmap bitmap = Bitmap.createBitmap(INPUT_IMAGE_SIZE , INPUT_IMAGE_SIZE, Bitmap.Config.ARGB_8888);
         int[] pixels = new int[INPUT_IMAGE_SIZE * INPUT_IMAGE_SIZE];
-        for (int i = 0; i < INPUT_IMAGE_SIZE * INPUT_IMAGE_SIZE; i++) {
-            int a = 0xFF;
-            float r = (buffer.getFloat()*127.5f)+127.5f;
-            float g = (buffer.getFloat()*127.5f)+127.5f;
-            float b = (buffer.getFloat()*127.5f)+127.5f;
-            pixels[i] = a << 24 | (int)r << 16 | (int)g << 8 | (int)b;
+        for (int i=0; i<INPUT_IMAGE_SIZE; i++) {
+            for(int j=0; j<INPUT_IMAGE_SIZE; j++){
+                int a = 0xFF;
+                float r = (arr[0][i][j][0]*127.5f)+127.5f;
+                float g = (arr[0][i][j][1]*127.5f)+127.5f;
+                float b = (arr[0][i][j][2]*127.5f)+127.5f;
+                pixels[(i*INPUT_IMAGE_SIZE)+j] = a << 24 | (int)r << 16 | (int)g << 8 | (int)b;
+            }
         }
-        //printData+=(" Output pixel0: "+pixels[0]);
         bitmap.setPixels(pixels, 0, INPUT_IMAGE_SIZE, 0, 0, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE);
         return bitmap;
     }
