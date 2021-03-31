@@ -6,14 +6,35 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="5dp"
-    android:weightSum="20"
+    android:weightSum="40"
     tools:context=".MainActivity">
 
-    <ImageView
-        android:id="@+id/imageViewInput"
-        android:layout_weight="9"
+    <LinearLayout
+        android:layout_weight="19"
+        android:weightSum="4"
         android:layout_width="match_parent"
-        android:layout_height="0dp"/>
+        android:layout_height="0dp">
+        <ImageView
+            android:id="@+id/imageViewInput0"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+        <ImageView
+            android:id="@+id/imageViewInput1"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+        <ImageView
+            android:id="@+id/imageViewInput2"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+        <ImageView
+            android:id="@+id/imageViewInput3"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
 
     <Button
         android:id="@+id/btnCamera"
@@ -28,11 +49,31 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
 
-    <ImageView
-        android:id="@+id/imageViewOutput"
-        android:layout_weight="9"
+    <LinearLayout
+        android:layout_weight="19"
+        android:weightSum="4"
         android:layout_width="match_parent"
-        android:layout_height="0dp"/>
-
+        android:layout_height="0dp">
+        <ImageView
+            android:id="@+id/imageViewOutput0"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+        <ImageView
+            android:id="@+id/imageViewOutput1"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+        <ImageView
+            android:id="@+id/imageViewOutput2"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+        <ImageView
+            android:id="@+id/imageViewOutput3"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
 
 </LinearLayout>

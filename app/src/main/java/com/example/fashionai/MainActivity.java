@@ -3,48 +3,73 @@ package com.example.fashionai;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.Toast;
 
-import org.tensorflow.lite.DataType;
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
 import org.tensorflow.lite.Interpreter;
-import org.tensorflow.lite.support.image.ImageProcessor;
-import org.tensorflow.lite.support.image.TensorImage;
-import org.tensorflow.lite.support.image.ops.ResizeOp;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private final int INPUT_IMAGE_SIZE = 128,
+    private final int INPUT_IMAGE_SIZE = 256,
             PHOTO_FROM_CAMERA_REQUEST_CODE = 0,
             PHOTO_FROM_GALLERY_REQUEST_CODE = 1,
-            PERMISSION_REQUEST_CODE = 2;
-    ImageView imageViewOutput, imageViewInput;
+            PERMISSION_REQUEST_CODE = 2,
+            IMAGE_VIEW_COUNT = 4;
+    private final String MODEL_FILE_NAME = "model_256.tflite";
+    ImageView[] imageViewOutputs, imageViewInputs;
     Interpreter tfLite;
+    Mat sourceMat, grayMat, invertColorMatrix, invertedGrayMat, blurredMat, invertedBlurredMat, pencilSketchMat, pencilSketchRGBMat;
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS:
+                {
+                    sourceMat = new Mat();
+                    grayMat = new Mat();
+                    invertedGrayMat = new Mat(INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, CvType.CV_8UC1);
+                    blurredMat = new Mat();
+                    invertedBlurredMat = new Mat(INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, CvType.CV_8UC1);
+                    pencilSketchMat = new Mat(INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, CvType.CV_8UC1);
+                    pencilSketchRGBMat = new Mat();
+                    invertColorMatrix = new Mat(INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, CvType.CV_8UC1, new Scalar(255,255,255));
+                } break;
+                default:
+                {
+                    super.onManagerConnected(status);
+                } break;
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,8 +78,17 @@ public class MainActivity extends AppCompatActivity {
 
         Button btnCamera = (Button) findViewById(R.id.btnCamera);
         Button btnGallery = (Button) findViewById(R.id.btnGallery);
-        imageViewInput = (ImageView) findViewById(R.id.imageViewInput);
-        imageViewOutput = (ImageView) findViewById(R.id.imageViewOutput);
+
+        imageViewInputs = new ImageView[IMAGE_VIEW_COUNT];
+        imageViewInputs[0] = (ImageView) findViewById(R.id.imageViewInput0);
+        imageViewInputs[1] = (ImageView) findViewById(R.id.imageViewInput1);
+        imageViewInputs[2] = (ImageView) findViewById(R.id.imageViewInput2);
+        imageViewInputs[3] = (ImageView) findViewById(R.id.imageViewInput3);
+        imageViewOutputs = new ImageView[IMAGE_VIEW_COUNT];
+        imageViewOutputs[0] = (ImageView) findViewById(R.id.imageViewOutput0);
+        imageViewOutputs[1] = (ImageView) findViewById(R.id.imageViewOutput1);
+        imageViewOutputs[2] = (ImageView) findViewById(R.id.imageViewOutput2);
+        imageViewOutputs[3] = (ImageView) findViewById(R.id.imageViewOutput3);
 
         try {
             tfLite = new Interpreter(loadModelFile());
@@ -78,22 +112,26 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        /*if (Build.VERSION.SDK_INT >= 23) {
-            int permissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
-            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
-            }
-        }*/
         requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
     }
 
     private ByteBuffer loadModelFile() throws IOException {
-        AssetFileDescriptor fileDescriptor = this.getAssets().openFd("model.tflite");
+        AssetFileDescriptor fileDescriptor = this.getAssets().openFd(MODEL_FILE_NAME);
         FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
         FileChannel fileChannel = inputStream.getChannel();
         long startOffset = fileDescriptor.getStartOffset();
         long declaredLength = fileDescriptor.getDeclaredLength();
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+    }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        if (!OpenCVLoader.initDebug()) {
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
+        } else {
+            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+        }
     }
 
     @Override
@@ -108,7 +146,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case PHOTO_FROM_GALLERY_REQUEST_CODE:
-                Log.d("C1: ", "Enter Gallery Code");
                 if(resultCode != RESULT_OK || data == null) return;
 
                 Uri selectedImage =  data.getData();
@@ -127,17 +164,19 @@ public class MainActivity extends AppCompatActivity {
                 File pictureFile = new File(picturePath);
                 inputBitmap = BitmapFactory.decodeFile(pictureFile.getAbsolutePath());
                 cursor.close();
-                Log.d("C1: ", "Exit Gallery Code: "+pictureFile.getAbsolutePath()+": "+(inputBitmap==null));
                 break;
 
             default:
                 return;
         }
 
-        imageViewInput.setImageBitmap(inputBitmap);
         try{
-            Bitmap outputBitmap = doInterference(inputBitmap);
-            imageViewOutput.setImageBitmap(outputBitmap);
+            List<Bitmap> inputBitMaps = getSketchBitmaps(inputBitmap);
+            for(int i=0; i<IMAGE_VIEW_COUNT; i++) {
+                imageViewInputs[i].setImageBitmap(inputBitMaps.get(i));
+                Bitmap outputBitmap = doInterference(inputBitMaps.get(i));
+                imageViewOutputs[i].setImageBitmap(outputBitmap);
+            }
         }catch (Exception e){
             showAlert(e.getMessage());
         }
@@ -156,16 +195,39 @@ public class MainActivity extends AppCompatActivity {
         float[][][][] outputArray = new float[1][INPUT_IMAGE_SIZE][INPUT_IMAGE_SIZE][3];
         tfLite.run(inputArray, outputArray);
         return floatArrayToBitmap(outputArray);
-        //return floatArrayToBitmap();
+    }
+
+    private List<Bitmap> getSketchBitmaps(Bitmap bitmap) {
+        Bitmap bitmapScaled = Bitmap.createScaledBitmap(bitmap, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, true);
+        Utils.bitmapToMat(bitmapScaled, sourceMat);
+
+        Imgproc.cvtColor(sourceMat, grayMat, Imgproc.COLOR_RGB2GRAY);
+        Core.subtract(invertColorMatrix, grayMat, invertedGrayMat);
+        Imgproc.GaussianBlur(invertedGrayMat, blurredMat, new Size(21, 21), 0);
+        Core.subtract(invertColorMatrix, blurredMat, invertedBlurredMat);
+        Core.divide(grayMat, invertedBlurredMat, pencilSketchMat);
+
+        Imgproc.cvtColor(pencilSketchMat, pencilSketchRGBMat, Imgproc.COLOR_GRAY2RGB);
+
+        Bitmap originalBitmap = Bitmap.createBitmap(sourceMat.cols(), sourceMat.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(sourceMat, originalBitmap);
+
+        Bitmap pencilSketchRGBBitmap = Bitmap.createBitmap(pencilSketchRGBMat.cols(), pencilSketchRGBMat.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(pencilSketchRGBMat, pencilSketchRGBBitmap);
+
+        List<Bitmap> sketchedBitmaps = new ArrayList<>();
+        sketchedBitmaps.add(originalBitmap);
+        sketchedBitmaps.add(pencilSketchRGBBitmap);
+        sketchedBitmaps.add(originalBitmap);
+        sketchedBitmaps.add(originalBitmap);
+        return sketchedBitmaps;
     }
 
     private float[][][][] bitmapToFloatArray(Bitmap bitmap) {
-        float[][][][] arr = new float[1][INPUT_IMAGE_SIZE][INPUT_IMAGE_SIZE][3];
-
-        Bitmap bitmapScaled = Bitmap.createScaledBitmap(bitmap, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, true);
         int[] pixels = new int[INPUT_IMAGE_SIZE * INPUT_IMAGE_SIZE];
-        bitmapScaled.getPixels(pixels, 0, INPUT_IMAGE_SIZE, 0, 0, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE);
+        bitmap.getPixels(pixels, 0, INPUT_IMAGE_SIZE, 0, 0, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE);
 
+        float[][][][] arr = new float[1][INPUT_IMAGE_SIZE][INPUT_IMAGE_SIZE][3];
         for (int i=0; i<INPUT_IMAGE_SIZE; i++) {
             for(int j=0; j<INPUT_IMAGE_SIZE; j++){
                 final int val = pixels[(i*INPUT_IMAGE_SIZE)+j];
