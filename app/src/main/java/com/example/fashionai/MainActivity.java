@@ -205,22 +205,22 @@ public class MainActivity extends AppCompatActivity {
         Core.subtract(invertColorMatrix, grayMat, invertedGrayMat);
         Imgproc.GaussianBlur(invertedGrayMat, blurredMat, new Size(21, 21), 0);
         Core.subtract(invertColorMatrix, blurredMat, invertedBlurredMat);
-        Core.divide(grayMat, invertedBlurredMat, pencilSketchMat);
+        Core.divide(grayMat, invertedBlurredMat, pencilSketchMat, 256.0);
 
         Imgproc.cvtColor(pencilSketchMat, pencilSketchRGBMat, Imgproc.COLOR_GRAY2RGB);
 
-        Bitmap originalBitmap = Bitmap.createBitmap(sourceMat.cols(), sourceMat.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(sourceMat, originalBitmap);
-
-        Bitmap pencilSketchRGBBitmap = Bitmap.createBitmap(pencilSketchRGBMat.cols(), pencilSketchRGBMat.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(pencilSketchRGBMat, pencilSketchRGBBitmap);
-
         List<Bitmap> sketchedBitmaps = new ArrayList<>();
-        sketchedBitmaps.add(originalBitmap);
-        sketchedBitmaps.add(pencilSketchRGBBitmap);
-        sketchedBitmaps.add(originalBitmap);
-        sketchedBitmaps.add(originalBitmap);
+        sketchedBitmaps.add(matToBitmap(sourceMat));
+        sketchedBitmaps.add(matToBitmap(invertedBlurredMat));
+        sketchedBitmaps.add(matToBitmap(pencilSketchMat));
+        sketchedBitmaps.add(matToBitmap(pencilSketchRGBMat));
         return sketchedBitmaps;
+    }
+
+    private Bitmap matToBitmap(Mat mat){
+        Bitmap bitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(mat, bitmap);
+        return bitmap;
     }
 
     private float[][][][] bitmapToFloatArray(Bitmap bitmap) {
